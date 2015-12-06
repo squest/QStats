@@ -28,6 +28,9 @@
        (reduce #(merge-with + % %2))
        (merge-with * (zipmap ks (repeat (count ks) (/ 1.0 (count coll)))))))
 
+
+;; Public function for mean
+
 (defn mean
   "Returns the mean of a collection, given two arguments returns the means
   of each dimension. Coll can be a list/vector of numbers or list of maps,
@@ -38,9 +41,6 @@
          (mat/matrix? coll) (mean-mat ks coll)
          :else (mean-maps ks coll))))
 
-;; Functions related to frequencies
-
-;; Implementations details for freq
 (defn- freq-impl-maps
   [ks maps]
   (->> (for [k ks]
@@ -48,6 +48,9 @@
               (frequencies)))
        (zipmap ks)))
 
+;; Functions related to frequencies
+
+;; Implementations details for freq
 (defn- freq-impl-ds
   [cols ds]
   (->> (-> (comp (map #(column-vals ds %))
@@ -73,6 +76,22 @@
      (ds/dataset? coll) (freq-impl-ds ks coll)
      (mat/matrix? coll) (freq-impl-mat ks coll)
      :else (freq-impl-maps ks coll))))
+
+;; Public function for mode
+
+(defn mode
+  "Returns the median of a collection of numbers. For n-dimensional data, behaves
+  the same as other functions in this namespace."
+  ([coll] (->> (frequencies coll)
+               (apply max-key val)
+               (key)))
+  ([ks coll]
+    (let [res (freq ks coll)]
+      (if (map? res)
+        (->> (vals res)
+             (map #(->> (apply max-key val %) key))
+             (zipmap ks))
+        (mapv #(->> (apply max-key val %) key) res)))))
 
 ;; Implementations for freq-by
 
@@ -142,6 +161,7 @@
      (if (map? fs)
        (freq-by-impl-maps-fs fs ks coll)
        (freq-by-impl-maps-f fs ks coll)))))
+
 
 
 
