@@ -1,7 +1,10 @@
 (ns qstats.basic
-  (:require [clojure.core.matrix.dataset :as ds]
-            [clojure.core.matrix :as mat]
-            [qstats.utils :refer [column-index column-vals]]))
+  (:require
+    [clojure.core.matrix.dataset :as ds]
+    [clojure.core.matrix :as mat]
+    [qstats.utils :refer [column-index column-vals]]))
+
+;; Functions related to means
 
 ;; Functions related to frequencies
 
@@ -19,16 +22,22 @@
        (map frequencies)
        (zipmap cols)))
 
+(defn- freq-impl-mat
+  [cols mats]
+  (->> (map #(mat/get-column mats %) cols)
+       (mapv frequencies)))
+
 (defn freq
   "When given one argument, it assumes a single dimensional data, and
   returns the result of clojure's frequencies function.
   Given two arguments, the first one can be a collection of maps or
   datasets. Either way it returns the frequencies of each column."
   ([coll] (frequencies coll))
-  ([keys-or-columns coll-or-ds]
-   (if (ds/dataset? coll-or-ds)
-     (freq-impl-ds keys-or-columns coll-or-ds)
-     (freq-impl-maps keys-or-columns coll-or-ds))))
+  ([ks coll]
+   (cond
+     (ds/dataset? coll) (freq-impl-ds ks coll)
+     (mat/matrix? coll) (freq-impl-mat ks coll)
+     :else (freq-impl-maps ks coll))))
 
 ;; Implementations for freq-by
 
@@ -58,24 +67,42 @@
               frequencies))
        (zipmap ks)))
 
+(defn- freq-by-impl-mat-f
+  [f cols mats]
+  (->> (map #(map f (mat/get-column mats %)) cols)
+       (mapv frequencies)))
+
+(defn- freq-by-impl-mat-fs
+  [fs cols mats]
+  (->> (map #(map (get fs %) (mat/get-column mats %)) cols)
+       (mapv frequencies)))
+
 (defn freq-by
   "When given one argument it returns the result of invoking
   (frequencies (map f col)).
   When given two arguments, it will do exactly like one arg but
   applying it to all keys in each map or for every column for dataset.
   The collection can be either list of maps or core.matrix's dataset.
-  The f-or-fs can be a single function that applied to all supplied keys
+  The fs can be a single function that applied to all supplied keys
   or it can be a map where the key is each key in keys and the val is the function
   to be applied to each of the element for that key."
   ([f coll] (frequencies (map f coll)))
-  ([f-or-fs keys-or-columns coll-or-ds]
-   (if (ds/dataset? coll-or-ds)
-     (if (coll? f-or-fs)
-       (freq-by-impl-ds-fs f-or-fs keys-or-columns coll-or-ds)
-       (freq-by-impl-ds-f f-or-fs keys-or-columns coll-or-ds))
-     (if (coll? f-or-fs)
-       (freq-by-impl-maps-fs f-or-fs keys-or-columns coll-or-ds)
-       (freq-by-impl-maps-f f-or-fs keys-or-columns coll-or-ds)))))
+  ([fs ks coll]
+   (cond
+     (ds/dataset? coll)
+     (if (map? fs)
+       (freq-by-impl-ds-fs fs ks coll)
+       (freq-by-impl-ds-f fs ks coll))
+     (mat/matrix? coll)
+     (if (map? fs)
+       (freq-by-impl-mat-fs fs ks coll)
+       (freq-by-impl-mat-f fs ks coll))
+     :else
+     (if (map? fs)
+       (freq-by-impl-maps-fs fs ks coll)
+       (freq-by-impl-maps-f fs ks coll)))))
+
+
 
 
 

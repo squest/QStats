@@ -2,7 +2,8 @@
   (:require
     [clojure.test :refer :all]
     [qstats.basic :refer :all]
-    [clojure.core.matrix.dataset :as ds]))
+    [clojure.core.matrix.dataset :as ds]
+    [clojure.core.matrix :as mat]))
 
 (defn- prime?
   "Helper function for test"
@@ -25,7 +26,8 @@
                          (filter prime?))
         ndim-data (for [i single-data
                         j single-data]
-                    [(* i j) (+ i j) (- i j) (+ 100 i (- 100 j))])
+                    [(* 1.0 i j) (+ 1.0 i j) (- i j 0.0) (+ 100.0 i (- 100 j))])
+        matrix-version (mat/matrix ndim-data)
         ds-version (ds/dataset [:a :b :c :d] ndim-data)
         maps-version (mapv #(zipmap [:a :b :c :d] %) ndim-data)]
 
@@ -44,6 +46,11 @@
                    (frequencies))]
              (-> (freq [:a :b] ds-version)
                  ((juxt :a :b)))))
+      (is (= [(->> (map first ndim-data)
+                   (frequencies))
+              (->> (map second ndim-data)
+                   (frequencies))]
+             (freq [0 1] matrix-version)))
       (is (= [(->> (map first ndim-data)
                    (frequencies))
               (->> (map second ndim-data)
@@ -71,19 +78,28 @@
     ;; n-dimensional data tests
     (testing "freq-by to n-dimensional data using one fn"
       (is (= {:a {true count-primes false (- maxi count-primes)}
-              :b (let [ctr (count (filter prime? (range maxi)))]
+              :c (let [ctr (count (filter prime? (range maxi)))]
                    {true ctr false (- maxi ctr)})}
-             (let [dats (-> #(hash-map :a % :b %2)
+             (let [dats (-> #(hash-map :a % :b %2 :c %2)
                             (map single-data (range maxi)))]
-               (freq-by prime? [:a :b] dats))))
+               (freq-by prime? [:a :c] dats))))
 
       (is (= {:a {true count-primes false (- maxi count-primes)}
-              :b (let [ctr (count (filter prime? (range maxi)))]
+              :c (let [ctr (count (filter prime? (range maxi)))]
                    {true ctr false (- maxi ctr)})}
-             (let [dats (->> (interleave single-data (range maxi))
-                             (partition 2)
-                             (ds/dataset [:a :b]))]
-               (freq-by prime? [:a :b] dats)))))
+             (let [dats (->> (interleave single-data (range maxi) (range maxi))
+                             (partition 3)
+                             (ds/dataset [:a :b :c]))]
+               (freq-by prime? [:a :c] dats))))
+
+      (is (= [{true count-primes false (- maxi count-primes)}
+              (let [ctr (count (filter prime? (range maxi)))]
+                {true ctr false (- maxi ctr)})]
+             (let [dats (->> (interleave single-data (range maxi) (range maxi))
+                             (partition 3)
+                             (mat/matrix))]
+               (freq-by prime? [0 2] dats)))))
+
 
     (testing "freq-by to n-dimensional data using one map of fs"
       (is (= {:a (let [ctr (->> primes
@@ -93,7 +109,8 @@
               :b {true 50 false 50}}
              (let [dats (-> #(hash-map :a % :b %2 :c (+ % %2))
                             (map single-data (range maxi)))]
-               (freq-by {:a prime? :b odd?} [:a :b] dats))))
+               (-> {:a prime? :b odd?}
+                   (freq-by [:a :b] dats)))))
 
       (is (= {:a {true count-primes false (- maxi count-primes)}
               :b {true 50 false 50}}
@@ -102,6 +119,17 @@
                                          (range maxi))
                              (partition 3)
                              (ds/dataset [:a :b :c]))]
-               (freq-by {:a prime? :b odd?} [:a :b] dats)))))))
+               (-> {:a prime? :b #(== 0 (rem % 2))}
+                   (freq-by [:a :b] dats)))))
+
+      (is (= [{true count-primes false (- maxi count-primes)}
+              {true 50 false 50}]
+             (let [dats (->> (interleave single-data
+                                         (range maxi)
+                                         (range maxi))
+                             (partition 3)
+                             (mat/matrix))]
+               (-> {0 prime? 2 #(== 0 (rem % 2))}
+                   (freq-by [0 2] dats))))))))
 
 
