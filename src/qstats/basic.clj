@@ -6,22 +6,21 @@
 
 ;; Functions related to mean
 
-;; Implementation for means
-
-(declare mean)
+;; Implementations for mean
 
 (defn- mean-ds
   [ks coll]
   (->> (-> (comp (map #(column-vals coll %))
-                 (map mean))
+                 (map #(/ (mat/esum %) (mat/row-count %) 1.0)))
            (sequence ks))
        (zipmap ks)))
 
 (defn- mean-mat
   [ks coll]
   (-> (comp (map #(mat/get-column coll %))
-            (map mean))
-      (sequence ks)))
+            (map #(/ (mat/esum %) (mat/row-count %) 1.0)))
+      (sequence ks)
+      vec))
 
 (defn- mean-maps
   [ks coll]
@@ -35,7 +34,7 @@
   dataset or matrix."
   ([coll] (/ (reduce + coll) (count coll) 1.0))
   ([ks coll]
-   (cond (ds/dataset coll) (mean-ds ks coll)
+   (cond (ds/dataset? coll) (mean-ds ks coll)
          (mat/matrix? coll) (mean-mat ks coll)
          :else (mean-maps ks coll))))
 

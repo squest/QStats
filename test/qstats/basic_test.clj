@@ -19,6 +19,43 @@
                       false
                       (recur (+ 2 i))))))))
 
+(deftest mean-test
+  (let [maxi 99
+        single-inc (range maxi)
+        single-uniform (repeat maxi 50)
+        single-steps (range 0 maxi 2)
+        single-random (repeatedly maxi (fn [] (rand-int 10)))
+        mean-sr (/ (reduce + single-random) (count single-random) 1.0)]
+
+    (testing "mean for one-dimensional data"
+      (is (== 49 (mean single-inc)))
+      (is (== 50 (mean single-uniform)))
+      (is (== 49 (mean single-steps)))
+      (is (== mean-sr (mean single-random))))
+
+    (testing "mean for dataset version"
+      (is (= (zipmap [:a :b :d] [49.0 50.0 mean-sr])
+             (->> [single-inc single-uniform single-steps single-random]
+                  (apply interleave)
+                  (partition 4)
+                  (ds/dataset [:a :b :c :d])
+                  (mean [:a :b :d])))))
+
+    (testing "mean for maps version"
+      (is (= (zipmap [:a :b :d] [49.0 50.0 mean-sr])
+             (->> [single-inc single-uniform single-steps single-random]
+                  (apply map (fn [a b c d] {:a a :b b :c c :d d}))
+                  (mean [:a :b :d])))))
+
+    (testing "mean for matrix version"
+      (is (= [49.0 50.0 mean-sr]
+             (->> [single-inc single-uniform single-steps single-random]
+                  (apply interleave)
+                  (partition 4)
+                  (mat/matrix)
+                  (mean [0 1 3])))))))
+
+
 (deftest freq-test
   (let [maxi 100
         single-data (->> (fn [] (rand-int 10))
