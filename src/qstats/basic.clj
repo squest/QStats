@@ -4,7 +4,40 @@
     [clojure.core.matrix :as mat]
     [qstats.utils :refer [column-index column-vals]]))
 
-;; Functions related to means
+;; Functions related to mean
+
+;; Implementation for means
+
+(declare mean)
+
+(defn- mean-ds
+  [ks coll]
+  (->> (-> (comp (map #(column-vals coll %))
+                 (map mean))
+           (sequence ks))
+       (zipmap ks)))
+
+(defn- mean-mat
+  [ks coll]
+  (-> (comp (map #(mat/get-column coll %))
+            (map mean))
+      (sequence ks)))
+
+(defn- mean-maps
+  [ks coll]
+  (->> (map #(select-keys % ks) coll)
+       (reduce #(merge-with + % %2))
+       (merge-with * (zipmap ks (repeat (count ks) (/ 1.0 (count coll)))))))
+
+(defn mean
+  "Returns the mean of a collection, given two arguments returns the means
+  of each dimension. Coll can be a list/vector of numbers or list of maps,
+  dataset or matrix."
+  ([coll] (/ (reduce + coll) (count coll) 1.0))
+  ([ks coll]
+   (cond (ds/dataset coll) (mean-ds ks coll)
+         (mat/matrix? coll) (mean-mat ks coll)
+         :else (mean-maps ks coll))))
 
 ;; Functions related to frequencies
 
@@ -18,14 +51,17 @@
 
 (defn- freq-impl-ds
   [cols ds]
-  (->> (map #(column-vals ds %) cols)
-       (map frequencies)
+  (->> (-> (comp (map #(column-vals ds %))
+                 (map frequencies))
+           (sequence cols))
        (zipmap cols)))
 
 (defn- freq-impl-mat
   [cols mats]
-  (->> (map #(mat/get-column mats %) cols)
-       (mapv frequencies)))
+  (-> (comp (map #(mat/get-column mats %))
+            (map frequencies))
+      (sequence cols)
+      vec))
 
 (defn freq
   "When given one argument, it assumes a single dimensional data, and
@@ -43,14 +79,16 @@
 
 (defn- freq-by-impl-ds-f
   [f cols ds]
-  (->> (map #(map f (column-vals ds %)) cols)
-       (map frequencies)
+  (->> (-> (comp (map #(map f (column-vals ds %)))
+                 (map frequencies))
+           (sequence cols))
        (zipmap cols)))
 
 (defn- freq-by-impl-ds-fs
   [fs cols ds]
-  (->> (map #(map (get fs %) (column-vals ds %)) cols)
-       (map frequencies)
+  (->> (-> (comp (map #(map (get fs %) (column-vals ds %)))
+                 (map frequencies))
+           (sequence cols))
        (zipmap cols)))
 
 (defn- freq-by-impl-maps-fs
@@ -69,13 +107,17 @@
 
 (defn- freq-by-impl-mat-f
   [f cols mats]
-  (->> (map #(map f (mat/get-column mats %)) cols)
-       (mapv frequencies)))
+  (-> (comp (map #(map f (mat/get-column mats %)))
+            (map frequencies))
+      (sequence cols)
+      vec))
 
 (defn- freq-by-impl-mat-fs
   [fs cols mats]
-  (->> (map #(map (get fs %) (mat/get-column mats %)) cols)
-       (mapv frequencies)))
+  (-> (comp (map #(map (get fs %) (mat/get-column mats %)))
+            (map frequencies))
+      (sequence cols)
+      vec))
 
 (defn freq-by
   "When given one argument it returns the result of invoking
