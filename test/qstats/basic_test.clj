@@ -5,6 +5,12 @@
     [clojure.core.matrix.dataset :as ds]
     [clojure.core.matrix :as mat]))
 
+(defn round
+  "Round a double to the given precision (number of significant digits)"
+  [d]
+  (let [factor (Math/pow 10 5)]
+    (/ (Math/round (* d factor)) factor)))
+
 (defn- prime?
   "Helper function for test"
   [^long p]
@@ -18,6 +24,46 @@
                     (if (== 0 (rem p i))
                       false
                       (recur (+ 2 i))))))))
+
+(deftest mean-test
+  (let [maxi 99
+        single-inc (range maxi)
+        single-uniform (repeat maxi 50)
+        single-steps (range 0 (* 2 maxi) 2)
+        single-random (repeatedly maxi (fn [] (rand-int 10)))
+        mean-sr (round (/ (reduce + single-random) (count single-random) (double 1.0)))]
+
+    (testing "mean for one-dimensional data"
+      (is (== 49 (mean single-inc)))
+      (is (== 50 (mean single-uniform)))
+      (is (= 98.0 (mean single-steps)))
+      (is (== mean-sr (round (mean single-random)))))
+
+    (testing "mean for dataset version"
+      (is (= (zipmap [:a :b :d] [49.0 50.0 mean-sr])
+             (->> [single-inc single-uniform single-steps single-random]
+                  (apply interleave)
+                  (partition 4)
+                  (ds/dataset [:a :b :c :d])
+                  (mean [:a :b :d])
+                  (#(zipmap (keys %) (map round (vals %))))))))
+
+    (testing "mean for maps version"
+      (is (= (zipmap [:a :b :d] (map double [49.0 50.0 mean-sr]))
+             (->> [single-inc single-uniform single-steps single-random]
+                  (apply map (fn [a b c d] {:a a :b b :c c :d d}))
+                  (mean [:a :b :d])
+                  (#(zipmap (keys %) (map round (vals %))))))))
+
+    (testing "mean for matrix version"
+      (is (= [49.0 50.0 mean-sr]
+             (->> [single-inc single-uniform single-steps single-random]
+                  (apply interleave)
+                  (partition 4)
+                  (mat/matrix)
+                  (mean [0 1 3])
+                  (mapv round)))))))
+
 
 (deftest freq-test
   (let [maxi 100
