@@ -1,6 +1,7 @@
 # stats
 
-A Clojure library designed to ... well, that part is up to you.
+A Clojure library for descriptive and inferential statistics.  
+Built on top of core.matrix and most functions work for one-dimensional data and n-dimensional data represented in list of maps, core.matrix's datasets, or matrix.
 
 ## Usage
 
